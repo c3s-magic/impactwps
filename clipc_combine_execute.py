@@ -26,13 +26,13 @@ class Process(WPSProcess):
                           abstract="Performs operation on two nc files and returns the answer as nc file",
                           grassLocation =False)
         
-        self.inputa = self.addLiteralInput(identifier="inputa",
+        self.input1 = self.addLiteralInput(identifier="input1",
                                                 title="Input A",
                                                 abstract="application/netcdf",
                                                 default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/tier1_indicators/icclim_cerfacs/vDTR/MPI-M-MPI-ESM-LR_rcp45_r1i1p1_SMHI-RCA4_v1-SMHI-DBS43-MESAN-1989-2010/vDTR_OCT_MPI-M-MPI-ESM-LR_rcp45_r1i1p1_SMHI-RCA4_v1-SMHI-DBS43-MESAN-1989-2010_EUR-11_2006-2100.nc",
                                                 type = type("String"))  
 
-        self.inputb = self.addLiteralInput(identifier="inputb",
+        self.input2 = self.addLiteralInput(identifier="input2",
                                                 title="Input B",
                                                 abstract="application/netcdf",
                                                 default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/tier1_indicators/icclim_cerfacs/TNn/MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1/TNn_OCT_MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1_EUR-11_2006-2100.nc",
@@ -56,8 +56,8 @@ class Process(WPSProcess):
 
         self.bbox = self.addLiteralInput(identifier = "bbox",title = "Bounding box in defined coordinate system",type="String",minOccurs=4,maxOccurs=4,default="-40,20,60,85")
         
-        self.timea = self.addLiteralInput(identifier = "timea",title = "Time A for netcdf input A",type="String",minOccurs=1,maxOccurs=1,default="2010-10-16T00:00:00Z")
-        self.timeb = self.addLiteralInput(identifier = "timeb",title = "Time B for netcdf input B",type="String",minOccurs=1,maxOccurs=1,default="2010-10-16T00:00:00Z")
+        self.time1 = self.addLiteralInput(identifier = "time1",title = "Time A for netcdf input A",type="String",minOccurs=1,maxOccurs=1,default="2010-10-16T00:00:00Z")
+        self.time2 = self.addLiteralInput(identifier = "time2",title = "Time B for netcdf input B",type="String",minOccurs=1,maxOccurs=1,default="2010-10-16T00:00:00Z")
         
         self.operator.values = ["add","subtract","divide","multiply"] 
         self.norm1.values = ["normnone" , "normzero", "normminmax", "normstndrd"]
@@ -66,7 +66,7 @@ class Process(WPSProcess):
         self.width  = self.addLiteralInput(identifier = "width"  ,title = "width of wcs"  ,type="String",minOccurs=1,maxOccurs=1,default="400")
         self.height = self.addLiteralInput(identifier = "height" ,title = "height of wcs" ,type="String",minOccurs=1,maxOccurs=1,default="300")
 
-        self.outputFileName = self.addLiteralInput(identifier="outputFileName",title = "Output file name",type="String",default="combine.nc")
+        self.outputfilename = self.addLiteralInput(identifier="outputfilename",title = "Output file name",type="String",default="combine.nc")
         
         self.result = self.addLiteralOutput(identifier = "result",title = "result as OpenDAP URL");
 
@@ -96,14 +96,14 @@ class Process(WPSProcess):
         mkdir_p(fileOutPath)
         self.status.set("Starting....", 1)
         """ Get output filename """
-        outputfile = self.outputFileName.getValue()
+        outputfile = self.outputfilename.getValue()
       
-        wcs_url1 =  'https://dev.climate4impact.eu/impactportal/adagucserver?source='+self.inputa.getValue()+"&"
-        wcs_url2 =  'https://dev.climate4impact.eu/impactportal/adagucserver?source='+self.inputb.getValue()+"&"
+        wcs_url1 =  'https://climate4impact.eu/impactportal/adagucserver?source='+self.input1.getValue()+"&"
+        wcs_url2 =  'https://climate4impact.eu/impactportal/adagucserver?source='+self.input2.getValue()+"&"
 
         bbox =  self.bbox.getValue()[0]+","+self.bbox.getValue()[1]+","+self.bbox.getValue()[2]+","+self.bbox.getValue()[3];
-        time1 = self.timea.getValue();
-        time2 = self.timeb.getValue();
+        time1 = self.time1.getValue();
+        time2 = self.time2.getValue();
         
         op = "*"
         

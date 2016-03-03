@@ -32,9 +32,11 @@ class Process(WPSProcess):
        
         
         self.result = self.addLiteralOutput(identifier = "result",title = "answer");
+        self.inputorder = self.addLiteralOutput(identifier = "inputorder",title = "inputorder");
 
     
     def execute(self):
         
-        self.result.setValue("add,substract,divide,multiply");
+        self.result.setValue("{\"operator\":[\"add\",\"substract\",\"divide\",\"multiply\"]}");
+        self.inputorder.setValue("input1,input2,time1,time2,norm1,norm2,bbox,operator,width,height,outputfilename");
         self.status.set("Finished....", 100)      
