@@ -40,19 +40,19 @@ class Process(WPSProcess):
 
         self.operator = self.addLiteralInput(identifier = 'operator',
                                               title = 'Combine operation',
-                                              abstract = 'Choose operator for array artithmetic.'
+                                              abstract = 'Choose operator for array artithmetic.',
                                               type=type("String"),
                                               default = 'multiply')  
 
         self.norm1 = self.addLiteralInput(identifier = 'norm1',
                                               title = 'normalisation operator input A',
-                                              abstract = 'Choose normalisation method for dataset A.'
+                                              abstract = 'Choose normalisation method for dataset A.',
                                               type=type("String"),
                                               default = 'normnone')
 
         self.norm2 = self.addLiteralInput(identifier = 'norm2',
                                               title = 'normalisation operator input B',
-                                              abstract = 'Choose normalisation method for dataset B.'
+                                              abstract = 'Choose normalisation method for dataset B.',
                                               type=type("String"),
                                               default = 'normnone')
 
