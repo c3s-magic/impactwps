@@ -27,29 +27,32 @@ class Process(WPSProcess):
                           grassLocation =False)
         
         self.input1 = self.addLiteralInput(identifier="input1",
-                                                title="Input A",
-                                                abstract="application/netcdf",
+                                                title="Insert input A value",
+                                                abstract="Insert opendap link to netcdf file.",
                                                 default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/tier1_indicators/icclim_cerfacs/vDTR/MPI-M-MPI-ESM-LR_rcp45_r1i1p1_SMHI-RCA4_v1-SMHI-DBS43-MESAN-1989-2010/vDTR_OCT_MPI-M-MPI-ESM-LR_rcp45_r1i1p1_SMHI-RCA4_v1-SMHI-DBS43-MESAN-1989-2010_EUR-11_2006-2100.nc",
                                                 type = type("String"))  
 
         self.input2 = self.addLiteralInput(identifier="input2",
-                                                title="Input B",
-                                                abstract="application/netcdf",
+                                                title="Inser input B value",
+                                                abstract="Insert opendap link to netcdf file.",
                                                 default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/tier1_indicators/icclim_cerfacs/TNn/MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1/TNn_OCT_MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1_EUR-11_2006-2100.nc",
                                                 type = type("String"))  
 
         self.operator = self.addLiteralInput(identifier = 'operator',
-                                              title = 'operator',
+                                              title = 'Combine operation',
+                                              abstract = 'Choose operator for array artithmetic.'
                                               type=type("String"),
                                               default = 'multiply')  
 
         self.norm1 = self.addLiteralInput(identifier = 'norm1',
-                                              title = 'normalisation operator 1',
+                                              title = 'normalisation operator input A',
+                                              abstract = 'Choose normalisation method for dataset A.'
                                               type=type("String"),
                                               default = 'normnone')
 
         self.norm2 = self.addLiteralInput(identifier = 'norm2',
-                                              title = 'normalisation operator 2',
+                                              title = 'normalisation operator input B',
+                                              abstract = 'Choose normalisation method for dataset B.'
                                               type=type("String"),
                                               default = 'normnone')
 
