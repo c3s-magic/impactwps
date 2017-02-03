@@ -43,23 +43,31 @@ class CGIRunner:
     # read line without blocking
     while True:
       #time.sleep(100/1000000.0)
+      #time.sleep(0.01)
       try:  
-        line = q.get_nowait() # or q.get(timeout=.1)
+        line = q.get(timeout=.01)
         if(callback != None):
           callback(line)
       except Empty:
           if(t.isAlive() == False):
             break;
-      
-      
+    
+    """ Sometimes stuff is still in que """
+    
+    while True:
+      #time.sleep(100/1000000.0)
+      time.sleep(0.1)
+      try:  
+        line = q.get(timeout=.1)
+        if(callback != None):
+          callback(line)
+      except Empty:
+          if(t.isAlive() == False):
+            break;
+  
     return p.wait()
   
   def filterHeader(self,_message,writefunction):
-      #with open("/tmp/dev.txt", "a") as myfile:
-        #myfile.write(_message)
-        #myfile.flush();
-      
-      #print "B "+message
       if self.headersSent == False:
         message = bytearray(_message)
         endHeaderIndex = 0
@@ -89,6 +97,10 @@ class CGIRunner:
     
         
   def run(self,cmds,url,out,extraenv = []):
+    try:
+      os.remove(out)
+    except:
+      pass
     ncout = open(out,"a+b")
    
     self.headersSent = False

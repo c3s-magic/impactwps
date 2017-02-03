@@ -17,9 +17,9 @@ class ProcessSimpleIndice(WPSProcess):
 
     def __init__(self):
         WPSProcess.__init__(self,
-                            identifier = 'wps_simple_indice', # only mandatary attribute = same file name
-                            title = 'SimpleIndices',
-                            abstract = 'Computes single input indices of temperature TG, TX, TN, TXx, TXn, TNx, TNn, SU, TR, CSU, GD4, FD, CFD, ID, HD17; of rainfal: CDD, CWD, RR, RR1, SDII, R10mm, R20mm, RX1day, RX5day; and of snowfall: SD, SD1, SD5, SD50.',
+                            identifier = 'clipc_simpleindicator_execute', # only mandatary attribute = same file name
+                            title = 'CLIPC ICCLIM simple indicator calculator Execute',
+                            abstract = 'Using ICCLIM, single input indices of temperature TG, TX, TN, TXx, TXn, TNx, TNn, SU, TR, CSU, GD4, FD, CFD, ID, HD17; of rainfall: CDD, CWD, RR, RR1, SDII, R10mm, R20mm, RX1day, RX5day; and of snowfall: SD, SD1, SD5, SD50 can be computed.',
                             version = "1.0",
                             storeSupported = True,
                             statusSupported = True,
@@ -27,7 +27,8 @@ class ProcessSimpleIndice(WPSProcess):
 
 
         self.indiceNameIn = self.addLiteralInput(identifier = 'indiceName',
-                                               title = 'Indice name',
+                                               title = 'Indicator name',
+                                               abstract = 'The indicator to calculate' ,
                                                type="String",
                                                default = 'SU')        
 
@@ -35,51 +36,55 @@ class ProcessSimpleIndice(WPSProcess):
 
 
         self.sliceModeIn = self.addLiteralInput(identifier = 'sliceMode',
-                                              title = 'Slice mode (temporal grouping to apply for calculations)',
+                                              title = 'Time slice mode',
+                                              abstract = 'Selects temporal grouping to apply for calculations',
                                               type="String",
                                               default = 'year')
         self.sliceModeIn.values = ["year","month","ONDJFM","AMJJAS","DJF","MAM","JJA","SON"]
 
 
         self.thresholdIn = self.addLiteralInput(identifier = 'threshold', 
-                                               title = 'Threshold(s) for certain indices (SU, CSU and TR). Can be a comma separated list, e.g. 20,21,22',
+                                               title = 'Indicator threshold',
+                                               abstract = 'Threshold(s) for certain indices (SU, CSU and TR). Input can be a single numer or a number range, e.g. for SU this can be "20" or "20,21,22"  degrees Celsius',
                                                type=type("S"),
                                                minOccurs=0,
                                                maxOccurs=1024,
-                                               default = "None")
+                                               default = 'None')
 
        
-        self.filesIn = self.addLiteralInput(identifier = 'files',
-                                               title = 'Input netCDF files list',
-                                               abstract="application/netcdf",
+        self.filesIn = self.addLiteralInput(identifier = 'wpsnetcdfinput_files',
+                                               title = 'Input filelist',
+                                               abstract="The input filelist to calculate the indicator on. The inputs need to be accessible by opendap URL's.",
                                                type=type("S"),
                                                minOccurs=0,
                                                maxOccurs=1024,
                                                default = 'http://opendap.knmi.nl/knmi/thredds/dodsC/IS-ENES/TESTSETS/tasmax_day_EC-EARTH_rcp26_r8i1p1_20060101-20251231.nc')
-                                               #default = 'http://aims3.llnl.gov/thredds/dodsC/cmip5_css02_data/cmip5/output1/CMCC/CMCC-CM/rcp85/day/atmos/day/r1i1p1/tasmax/1/tasmax_day_CMCC-CM_rcp85_r1i1p1_20060101-20061231.nc')
         
                                                 
-        self.varNameIn = self.addLiteralInput(identifier = 'varName',
-                                               title = 'Variable name to process',
+        self.varNameIn = self.addLiteralInput(identifier = 'wpsvariable_varName~wpsnetcdfinput_files',
+                                               title = 'Input variable name',
+                                               abstract = 'Variable name to process as specified in your input files.',
                                                type="String",
                                                default = 'tasmax')
         
 
-        self.timeRangeIn = self.addLiteralInput(identifier = 'timeRange', 
-                                               title = 'Time range, e.g. 2010-01-01/2012-12-31. None means all dates in the file.',
+        self.timeRangeIn = self.addLiteralInput(identifier = 'wpstimerange_timeRange~wpsnetcdfinput_files', 
+                                               title =  'Time range',
+                                               abstract = 'Time range, e.g. 2010-01-01/2012-12-31. None means all dates in the file.',
                                                type="String",
                                                 default = 'None')
         
-        self.outputFileNameIn = self.addLiteralInput(identifier = 'outputFileName', 
+        self.outputFileNameIn = self.addLiteralInput(identifier = 'wpsnetcdfoutput_outputFileName', 
                                                title = 'Name of output netCDF file',
                                                type="String",
                                                default = 'out_icclim.nc')
         
         
-        self.NLevelIn = self.addLiteralInput(identifier = 'NLevel', 
-                                               title = 'Number of level (if 4D variable)',
+        self.NLevelIn = self.addLiteralInput(identifier = 'wpsnlevel_NLevel~wpsnetcdfinput_files', 
+                                               title = 'Model level number',
+                                               abstract = 'The model level from your input data, in case you have 4D variables in your input data',
                                                type="String",
-                                               default = "None")
+                                               default = 'None')
 
         self.opendapURL = self.addLiteralOutput(identifier = "opendapURL",title = "opendapURL");   
         

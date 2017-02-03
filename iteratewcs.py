@@ -12,17 +12,37 @@ import shutil
 from mkdir_p import *
 import zipfile
 from xml.sax.saxutils import escape
+from xml.dom import minidom
 import CGIRunner
+import re
 
+  
+    
 def daterange(start_date, end_date, delta):
   d = start_date
-  while d < end_date:
+  while d <= end_date:
     yield d
     d += delta
     
 
   
+def which(program):
+    import os
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
 
 
 
@@ -57,53 +77,137 @@ def makezip(tmpdir,OUTFILE):
       zipf.write(os.path.join(root, file))
   zipf.close()
   os.chdir(currentpath)
+  
+def callADAGUC(adagucexecutable,tmpdir,LOGFILE,url,filetogenerate):
+  env = {}
+  if(LOGFILE != None):
+    env["ADAGUC_ERRORFILE"]=LOGFILE
+  try:
+    os.remove(tmpdir+"/adaguclog.log")
+  except:
+    pass
+  env["ADAGUC_LOGFILE"]=tmpdir+"/adaguclog.log"
+  return CGIRunner.CGIRunner().run([adagucexecutable],url,out = filetogenerate,extraenv=env)  
 
+
+def describeCoverage(adagucexecutable,tmpdir,LOGFILE,WCSURL,COVERAGE):
+  
+  filetogenerate = tmpdir+"/describecoverage.xml"
+  url = WCSURL + "REQUEST=DescribeCoverage&";
+  url = url + "COVERAGE="+COVERAGE+"&";
+  status = callADAGUC(adagucexecutable,tmpdir,LOGFILE,url,filetogenerate);
+  
+  if(status != 0):
+    adaguclog = openfile(tmpdir+"/adaguclog.log");
+    raise ValueError( "Unable to retrieve "+url+"\n"+adaguclog+"\n");
+  
+  if(os.path.isfile(filetogenerate) != True):
+    adaguclog = openfile(tmpdir+"/adaguclog.log");
+    raise ValueError ("Succesfully completed WCS DescribeCoverage, but no data found. Log is: "+url+"\n"+adaguclog+"\n");
+  
+
+  try:
+    xmldoc = minidom.parse(filetogenerate)
+  except:
+    adaguclog = openfile(tmpdir+"/adaguclog.log");
+    raise ValueError ("Succesfully completed WCS DescribeCoverage, but no data found for "+url+"\n"+adaguclog+"\n");
+  #print(itemlist[0].childNodes)
+  try:
+    itemlist = xmldoc.getElementsByTagName('gml:timePosition')
+    if(len(itemlist)!=0):
+
+      listtoreturn  = [];
+      for s in itemlist:
+        listtoreturn.append(isodate.parse_datetime(s.childNodes[0].nodeValue))
+      return listtoreturn
+    else:
+      start_date = xmldoc.getElementsByTagName('gml:begin')[0].childNodes[0].nodeValue
+      end_date = xmldoc.getElementsByTagName('gml:end')[0].childNodes[0].nodeValue
+      res_date  = xmldoc.getElementsByTagName('gml:duration')[0].childNodes[0].nodeValue
+      print start_date
+      print end_date
+      print res_date
+      return list(daterange(isodate.parse_datetime(start_date),isodate.parse_datetime(end_date),isodate.parse_duration(res_date)));
+  except:
+    pass
+  
+  return []
+  
 """
 This requires a working ADAGUC server in the PATH environment, ADAGUC_CONFIG environment variable must point to ADAGUC's config file.
 """
-
-def iteratewcs(TIME = "",BBOX = "-180,-90,180,90",CRS = "EPSG:4326",RESX=1,RESY=1,WCSURL="",TMP=".",COVERAGE="pr",LOGFILE=None,OUTFILE="out.nc",FORMAT="NetCDF",callback=None):
+def iteratewcs(TIME = "",BBOX = "-180,-90,180,90",CRS = "EPSG:4326",RESX=1,RESY=1,WCSURL="",TMP=".",COVERAGE="pr",LOGFILE=None,OUTFILE="out.nc",FORMAT="netcdf",callback=None):
+  adagucexecutable='adagucserver'
+  
+  """ Check if adagucserver is in the path """
+  if(which(adagucexecutable) == None):
+    raise ValueError("ADAGUC Executable '"+adagucexecutable+"' not found in PATH");
+  
+  callback("Starting iterateWCS",1)
   tmpdir = TMP+"/iteratewcstmp";
   shutil.rmtree(tmpdir, ignore_errors=True)
   mkdir_p(tmpdir);
   
-  start_date = isodate.parse_datetime(TIME.split("/")[0]);
-  end_date = isodate.parse_datetime(TIME.split("/")[1]);
-  timeres = isodate.parse_duration(TIME.split("/")[2]);
+  """ Determine which dates to do based on describe coverage call"""
+  callback("Starting WCS DescribeCoverage",1)
+  founddates = describeCoverage(adagucexecutable,tmpdir,LOGFILE,WCSURL,COVERAGE);
   
-  datestodo = list(daterange(start_date, end_date, timeres));
+  start_date=""
+  end_date=""
+  
+  if len(TIME) > 0 :
+    if len(TIME.split("/")) >= 2:
+      start_date = isodate.parse_datetime(TIME.split("/")[0]);
+      end_date = isodate.parse_datetime(TIME.split("/")[1]);
+
+  
+  
+  callback("File has "+str(len(founddates))+" dates",1)
+  datestodo = []
+  
+  
+  if len(founddates) > 0:
+        for date in founddates:
+            if(date>=start_date and date<=end_date):
+                datestodo.append(date)
+  else:
+    datestodo.append("*");
+  
+  callback("Found "+str(len(datestodo))+" dates",1)
   
   if(len(datestodo) == 0):
-    datestodo.append(start_date)
+    raise ValueError("No data found in resource for given dates. Possible date range should be within "+str(founddates[0])+" and "+str(founddates[-1]))
   
   
   numdatestodo=len(datestodo);
   datesdone = 0;
-    
+  filetogenerate = ""
+  callback("Starting Iterating WCS GetCoverage",1)
+  """ Make the WCS GetCoverage calls """
   for single_date in datestodo:
  
-    wcstime=time.strftime("%Y-%m-%dT%H:%M:%SZ", single_date.timetuple())
-    single_date2 = single_date;
-    single_date2 += timeres
-    wcstime2=time.strftime("%Y-%m-%dT%H:%M:%SZ", single_date2.timetuple())
+    filetime=""
+    wcstime=""
     
-    filetime=time.strftime("%Y%m%dT%H%M%SZ", single_date.timetuple())
+    
     url = WCSURL + "REQUEST=GetCoverage&";
-    url = url + "FORMAT="+FORMAT+"&";
-    url = url + "COVERAGE="+COVERAGE+"&";
-    url = url + "TIME="+wcstime+"&";
-    #url = url + "TIME="+wcstime+"/"+wcstime2+"&";
+    url = url + "FORMAT="+urllib.quote_plus(FORMAT)+"&";
+    url = url + "COVERAGE="+urllib.quote_plus(COVERAGE)+"&";
+    if single_date != "*":
+      wcstime=time.strftime("%Y-%m-%dT%H:%M:%SZ", single_date.timetuple())
+      filetime=time.strftime("%Y%m%dT%H%M%SZ", single_date.timetuple())
+      url = url + "TIME="+urllib.quote_plus(wcstime)+"&";
+        
     url = url + "BBOX="+BBOX+"&";
     url = url + "RESX="+str(RESX)+"&";
     url = url + "RESY="+str(RESY)+"&";
-    url = url + "CRS="+CRS+"&";
+    url = url + "CRS="+urllib.quote_plus(CRS)+"&";
     
+
     
-    
-    cmds=['adagucserver']
+ 
     
     filetogenerate = tmpdir+"/file"+filetime
-    #filetogenerate = "/tmp"+"/file"+filetime
     
     if(FORMAT == "netcdf"):
       filetogenerate = filetogenerate  + ".nc"
@@ -111,26 +215,16 @@ def iteratewcs(TIME = "",BBOX = "-180,-90,180,90",CRS = "EPSG:4326",RESX=1,RESY=
       filetogenerate = filetogenerate  + ".tiff"
     if(FORMAT == "aaigrid"):
       filetogenerate = filetogenerate  + ".grd"
-      
-    env = {}
-    if(LOGFILE != None):
-      env["ADAGUC_ERRORFILE"]=LOGFILE
     
-    try:
-      os.remove(tmpdir+"/adaguclog.log")
-    except:
-      pass
-    env["ADAGUC_LOGFILE"]=tmpdir+"/adaguclog.log"
-    
-    status = CGIRunner.CGIRunner().run(cmds,url,out = filetogenerate,extraenv=env)
-
-    adaguclog = openfile(tmpdir+"/adaguclog.log");
+    status = callADAGUC(adagucexecutable,tmpdir,LOGFILE,url,filetogenerate);
     
     if(status != 0):
+      adaguclog = openfile(tmpdir+"/adaguclog.log");
       raise ValueError( "Unable to retrieve "+url+"\n"+adaguclog+"\n");
     
     if(os.path.isfile(filetogenerate) != True):
-      raise ValueError ("Succesfully completed WCS, but no data found for "+url+"\n"+adaguclog+"\n");
+      adaguclog = openfile(tmpdir+"/adaguclog.log");
+      raise ValueError ("Succesfully completed WCS GetCoverage, but no data found for "+url+"\n"+adaguclog+"\n");
    
     if(callback==None):
       print str(int((float(datesdone)/numdatestodo)*90.))
@@ -138,7 +232,6 @@ def iteratewcs(TIME = "",BBOX = "-180,-90,180,90",CRS = "EPSG:4326",RESX=1,RESY=
       callback(wcstime,((float(datesdone)/float(numdatestodo))*90.))
         
         
-    #shutil.copyfile(filetogenerate ,"/tmp/test/"+filetime+".nc")
     datesdone=datesdone+1;
   
  
@@ -156,19 +249,23 @@ def iteratewcs(TIME = "",BBOX = "-180,-90,180,90",CRS = "EPSG:4326",RESX=1,RESY=
   
   """ If it is netcdf, make a new big netcdf file """
   if(FORMAT == "netcdf"):
-    cleanlog(tmpdir);
-    dolog(tmpdir,tmpdir)
-    dolog(tmpdir,OUTFILE)
-    cmds=['aggregate_time',tmpdir,OUTFILE]
-    dolog(tmpdir,cmds)
-    status = CGIRunner.CGIRunner().startProcess(cmds,monitor2)
-    
-    if(status != 0):
-      dolog(tmpdir,"statuscode: "+str(status))
+    if datesdone > 1:
+      cleanlog(tmpdir);
+      dolog(tmpdir,tmpdir)
+      dolog(tmpdir,OUTFILE)
+      cmds=['aggregate_time',tmpdir,OUTFILE]
+      dolog(tmpdir,cmds)
+      status = CGIRunner.CGIRunner().startProcess(cmds,monitor2)
       
-      data = getlog(tmpdir)
+      if(status != 0):
+        dolog(tmpdir,"statuscode: "+str(status))
+        
+        data = getlog(tmpdir)
+        
+        raise ValueError('Unable to aggregate: statuscode='+str(status)+"\n"+data)
+    else:
+      shutil.copyfile(filetogenerate ,OUTFILE)
       
-      raise ValueError('Unable to aggregate: statuscode='+str(status)+"\n"+data)
   else:
     makezip(tmpdir,OUTFILE)
     
@@ -177,20 +274,4 @@ def iteratewcs(TIME = "",BBOX = "-180,-90,180,90",CRS = "EPSG:4326",RESX=1,RESY=
   shutil.rmtree(tmpdir, ignore_errors=True)  
   return 0
   
-def test():  
-  def callback(m,p):
-    print p
-    
-  TIME = "2006-01-01T12:00:00Z/2006-02-01T12:00:00Z/PT24H";
-  BBOX = "-179.4375,-89.702158,180.5625,89.7021580";
-  CRS = "EPSG:4326";
-  WCSURL = "source=http://opendap.knmi.nl/knmi/thredds/dodsC/IS-ENES/TESTSETS/tasmax_day_EC-EARTH_rcp26_r8i1p1_20060101-20251231.nc&SERVICE=WCS&";
-  RESX=1.125;
-  RESY=1.121276975;
-  ##BBOX="0,50,5,55"
-  ##RESX=1;
-  ##RESY=1
-  #os.remove("/nobackup/users/plieger/projects/data/sdpkdc/test/interpolfix.nc")
-  iteratewcs(TIME=TIME,BBOX=BBOX,COVERAGE="tasmax",CRS=CRS,WCSURL=WCSURL,RESX=RESX,RESY=RESY,LOGFILE="/tmp/log.txt",callback=callback,OUTFILE="/nobackup/users/plieger/projects/data/sdpkdc/test/interpolfix.nc")
 
-#test()

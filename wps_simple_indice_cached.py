@@ -9,6 +9,19 @@ import os
 from os.path import expanduser
 from mkdir_p import *
 
+#Added for supporting cache
+import logging
+
+import clipccache as _clipccache
+#End
+
+logger = logging.getLogger('server_logger')
+#fh = logging.FileHandler('/tmp/server.log')
+#logger.setLevel(logging.DEBUG);
+#fh.setLevel(logging.DEBUG)
+#logger.addHandler(fh)
+
+
 transfer_limit_Mb = 100
 
     
@@ -17,8 +30,8 @@ class ProcessSimpleIndice(WPSProcess):
 
     def __init__(self):
         WPSProcess.__init__(self,
-                            identifier = 'wps_simple_indice', # only mandatary attribute = same file name
-                            title = 'SimpleIndices',
+                            identifier = 'wps_simple_indice_cache.py', # only mandatary attribute = same file name
+                            title = 'SimpleIndices Cached',
                             abstract = 'Computes single input indices of temperature TG, TX, TN, TXx, TXn, TNx, TNn, SU, TR, CSU, GD4, FD, CFD, ID, HD17; of rainfal: CDD, CWD, RR, RR1, SDII, R10mm, R20mm, RX1day, RX5day; and of snowfall: SD, SD1, SD5, SD50.',
                             version = "1.0",
                             storeSupported = True,
@@ -66,9 +79,9 @@ class ProcessSimpleIndice(WPSProcess):
         
 
         self.timeRangeIn = self.addLiteralInput(identifier = 'timeRange', 
-                                               title = 'Time range, e.g. 2010-01-01/2012-12-31. None means all dates in the file.',
+                                               title = 'Time range, e.g. 2010-01-01/2012-12-31',
                                                type="String",
-                                                default = 'None')
+                                                default = '2006-01-01/2025-12-31')
         
         self.outputFileNameIn = self.addLiteralInput(identifier = 'outputFileName', 
                                                title = 'Name of output netCDF file',
@@ -92,6 +105,20 @@ class ProcessSimpleIndice(WPSProcess):
         homedir = os.environ['HOME']
         os.chdir(homedir)
         
+        print "BLA ------------------------------------------------------------------------------------------------- BLA "
+
+        #Added for supporting cache
+        #Change the db connection parameter (if needed)
+        cache = _clipccache.clipccache(username='visadm', password='abcd', server='127.0.0.1', port=5432, homedir=homedir)
+        result = cache.cache_search(self, None)
+        if result is not None:
+                #return already computed results
+                self.opendapURL.setValue(result);
+                logger.debug("Found Result in cache " + self.opendapURL.value)
+                self.status.set("ready",100);
+                return
+        #End
+
         def callback(b):
           self.callback("Processing",b)
          
@@ -141,6 +168,42 @@ class ProcessSimpleIndice(WPSProcess):
 
         self.status.set("Processing input list: "+str(files),0)
         
+        #icclim.indice(indice_name=indice_name,
+                        #in_files=files,
+                        #var_name=var,
+                        #slice_mode=slice_mode,
+                        #time_range=time_range,
+                        #out_file=fileOutPath+out_file_name,
+                        #threshold=thresh,
+                        #N_lev=level,
+                        #transfer_limit_Mbytes=transfer_limit_Mb,
+                        #callback=callback,
+                        #callback_percentage_start_value=0,
+                        #callback_percentage_total=100,
+                        #base_period_time_range=None,
+                        #window_width=5,
+                        #only_leap_years=False,
+                        #ignore_Feb29th=True,
+                        #interpolation='hyndman_fan',
+                        #netcdf_version='NETCDF4_CLASSIC',
+                        #out_unit='days')
+        #icclim.indice(indice_name=indice_name,
+                        #in_files=files,
+                        #var_name=var,
+                        #slice_mode=slice_mode,
+                        #time_range=time_range,
+                        #out_file=fileOutPath+out_file_name,
+                        #threshold=thresh,
+                        #N_lev=level,
+                        #transfer_limit_Mbytes=transfer_limit_Mb,
+                        #callback=callback,
+                        #callback_percentage_start_value=0,
+                        #callback_percentage_total=100,
+                        #percentile_dict=None,
+                        #in_files2=None,
+                        #var_name2=None,
+                        #time_range2=None,
+                        #percentile_dict2=None)
         icclim.indice(indice_name=indice_name,
                         in_files=files,
                         var_name=var,
@@ -164,6 +227,12 @@ class ProcessSimpleIndice(WPSProcess):
         """ Set output """
         url = fileOutURL+"/"+out_file_name;
         self.opendapURL.setValue(url);
+
+  #Added for supporting cache
+        resinsert = cache.insert_new(self, None)
+        if resinsert is None:
+                logger.error("Error updating the cache catalog")
+  #End
+
         self.status.set("ready",100);
-        
         

@@ -5,12 +5,12 @@ class Process(WPSProcess):
     def __init__(self):
         # init process
         WPSProcess.__init__(self,
-                            identifier="binaryoperatorfornumbers", #the same as the file name
-                            title="Perform operation on two numbers",
+                            identifier="binaryoperatorfornumbers_10sec", #the same as the file name
+                            title="Perform operation on two numbers 10 seconds",
                             version = "1.0",
                             storeSupported = "true",
                             statusSupported = "true",
-                          abstract="Performs operation on two numbers and returns the answer",
+                          abstract="Performs operation on two numbers and returns the answer, updates every second its status for 10 seconds.",
                           grassLocation =False)
         
         self.inputa = self.addLiteralInput(identifier="inputa",
@@ -38,9 +38,9 @@ class Process(WPSProcess):
     def execute(self):
         import time
         self.status.set("Preparing....", 0)
-        #for i in xrange(1, 6):
-            #time.sleep(1)
-            #self.status.set("Thinking.....", i*20) 
+        for i in xrange(1, 11):
+            time.sleep(1)
+            self.status.set("Thinking.....", (i-1)*10) 
         
         answer = 0
         if(self.operator.getValue() == "add"):

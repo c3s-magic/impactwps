@@ -22,7 +22,8 @@ import os
 import shutil
 
 import iteratewcs
-  
+
+
 class Process(WPSProcess):
      def __init__(self):
         logging.debug("init");
@@ -45,6 +46,7 @@ class Process(WPSProcess):
         self.dates = self.addLiteralInput(identifier = "dates",title = "Start/stop/resolution in ISO8601 format",type="String",default="2076-01-01T12:00:00Z/2076-02-01T12:00:00Z/P1D")
         self.resx = self.addLiteralInput(identifier = "resx",title = "X resolution",type="String",default="1")
         self.resy = self.addLiteralInput(identifier = "resy",title = "Y resolution",type="String",default="1")
+        self.tags = self.addLiteralInput(identifier = "tags",title = "Your tag for this process",type="String",default="provenance_research_knmi");
         self.opendapURL = self.addLiteralOutput(identifier = "opendapURL",title = "opendapURL");
         self.outputFormat = self.addLiteralInput(identifier = 'outputFormat',
                             title = 'outputFormat',
@@ -85,6 +87,9 @@ class Process(WPSProcess):
         BBOX = "-180,-90,180,90";
         BBOX = self.bbox.getValue()[0]+","+self.bbox.getValue()[1]+","+self.bbox.getValue()[2]+","+self.bbox.getValue()[3];
         CRS = self.crs.getValue();
+        
+        
+        
         WCSURL = "source="+fileList[0]+"&SERVICE=WCS&";
         RESX=self.resx.getValue();
         RESY=self.resy.getValue();
@@ -93,7 +98,7 @@ class Process(WPSProcess):
         try:
           status = iteratewcs.iteratewcs(TIME=TIME,BBOX=BBOX,CRS=CRS,WCSURL=WCSURL,RESX=RESX,RESY=RESY,COVERAGE=self.coverage.getValue(),TMP=tmpFolderPath,OUTFILE=fileOutPath+"/"+outputfile,FORMAT=FORMAT,LOGFILE=tmpFolderPath+"/adagucerrlog.txt",callback=callback)
         except Exception as e:
-          return "failed"+str(e).replace('&','|amp|')
+          return "Iterate over WCS Failed:\n "+str(e).replace('&','&amp;')
           
         
         if(status != 0):

@@ -5,6 +5,9 @@ from mkdir_p import *
 from datetime import datetime
 home = expanduser("~")
 
+import logging;
+logging.debug("Something has been debugged")
+
 # python
 # clipc combine process
 # combine two netCDFs
@@ -27,15 +30,15 @@ class Process(WPSProcess):
                           grassLocation =False)
         
         self.input1 = self.addLiteralInput(identifier="input1",
-                                                title="Insert input A value",
-                                                abstract="Insert opendap link to netcdf file.",
-                                                default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/tier1_indicators/icclim_cerfacs/vDTR/MPI-M-MPI-ESM-LR_rcp45_r1i1p1_SMHI-RCA4_v1-SMHI-DBS43-MESAN-1989-2010/vDTR_OCT_MPI-M-MPI-ESM-LR_rcp45_r1i1p1_SMHI-RCA4_v1-SMHI-DBS43-MESAN-1989-2010_EUR-11_2006-2100.nc",
+                                                title="File A",
+                                                abstract="application/netcdf",
+                                                default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/cerfacs/vDTR/MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1/vDTR_MON_MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1_EUR-11_2006-2100.nc",
                                                 type = type("String"))  
 
         self.input2 = self.addLiteralInput(identifier="input2",
-                                                title="Inser input B value",
-                                                abstract="Insert opendap link to netcdf file.",
-                                                default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/tier1_indicators/icclim_cerfacs/TNn/MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1/TNn_OCT_MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1_EUR-11_2006-2100.nc",
+                                                title="File B",
+                                                abstract="application/netcdf",
+                                                default = "http://opendap.knmi.nl/knmi/thredds/dodsC/CLIPC/cerfacs/vDTR/MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1/vDTR_MON_MPI-M-MPI-ESM-LR_rcp85_r1i1p1_SMHI-RCA4_v1_EUR-11_2006-2100.nc",
                                                 type = type("String"))  
 
         self.operator = self.addLiteralInput(identifier = 'operator',
@@ -45,29 +48,29 @@ class Process(WPSProcess):
                                               default = 'multiply')  
 
         self.norm1 = self.addLiteralInput(identifier = 'norm1',
-                                              title = 'normalisation operator input A',
+                                              title = 'Normalisation operator input A',
                                               abstract = 'Choose normalisation method for dataset A.',
                                               type=type("String"),
                                               default = 'normnone')
 
         self.norm2 = self.addLiteralInput(identifier = 'norm2',
-                                              title = 'normalisation operator input B',
+                                              title = 'Normalisation operator input B',
                                               abstract = 'Choose normalisation method for dataset B.',
                                               type=type("String"),
                                               default = 'normnone')
 
 
-        self.bbox = self.addLiteralInput(identifier = "bbox",title = "Bounding box in defined coordinate system",type="String",minOccurs=4,maxOccurs=4,default="-40,20,60,85")
+        self.bbox = self.addLiteralInput(identifier = "bbox",title = "Bounding box",type="String",minOccurs=4,maxOccurs=4,default="-40,20,60,85")
         
-        self.time1 = self.addLiteralInput(identifier = "time1",title = "Time A for netcdf input A",type="String",minOccurs=1,maxOccurs=1,default="2010-10-16T00:00:00Z")
-        self.time2 = self.addLiteralInput(identifier = "time2",title = "Time B for netcdf input B",type="String",minOccurs=1,maxOccurs=1,default="2010-10-16T00:00:00Z")
+        self.time1 = self.addLiteralInput(identifier = "time1",title = "Time A",type="String",minOccurs=1,maxOccurs=1,default="2100-09-16T00:00:00Z")
+        self.time2 = self.addLiteralInput(identifier = "time2",title = "Time B",type="String",minOccurs=1,maxOccurs=1,default="2100-09-16T00:00:00Z")
         
         self.operator.values = ["add","subtract","divide","multiply"] 
         self.norm1.values = ["normnone" , "normzero", "normminmax", "normstndrd"]
         self.norm2.values = ["normnone" , "normzero", "normminmax", "normstndrd"]
 
-        self.width  = self.addLiteralInput(identifier = "width"  ,title = "width of wcs"  ,type="String",minOccurs=1,maxOccurs=1,default="400")
-        self.height = self.addLiteralInput(identifier = "height" ,title = "height of wcs" ,type="String",minOccurs=1,maxOccurs=1,default="300")
+        self.width  = self.addLiteralInput(identifier = "width"  ,title = "Width"  ,type="String",minOccurs=1,maxOccurs=1,default="400")
+        self.height = self.addLiteralInput(identifier = "height" ,title = "Height" ,type="String",minOccurs=1,maxOccurs=1,default="300")
 
         self.outputfilename = self.addLiteralInput(identifier="outputfilename",title = "Output file name",type="String",default="combine.nc")
         
@@ -101,8 +104,16 @@ class Process(WPSProcess):
         """ Get output filename """
         outputfile = self.outputfilename.getValue()
       
-        wcs_url1 =  'https://climate4impact.eu/impactportal/adagucserver?source='+self.input1.getValue()+"&"
-        wcs_url2 =  'https://climate4impact.eu/impactportal/adagucserver?source='+self.input2.getValue()+"&"
+        adagucservice = "https://climate4impact.eu/impactportal/adagucserver?";
+        
+        if( os.environ.get('SERVICE_ADAGUCSERVER') != None ):
+          adagucservice = os.environ.get('SERVICE_ADAGUCSERVER')
+        
+        logging.debug("adagucservice: "+adagucservice)
+       
+      
+        wcs_url1 =  adagucservice+'source='+self.input1.getValue()+"&"
+        wcs_url2 =  adagucservice+'source='+self.input2.getValue()+"&"
 
         bbox =  self.bbox.getValue()[0]+","+self.bbox.getValue()[1]+","+self.bbox.getValue()[2]+","+self.bbox.getValue()[3];
         time1 = self.time1.getValue();
@@ -126,9 +137,9 @@ class Process(WPSProcess):
 
         width = self.width.getValue()
         height = self.height.getValue()
-
-        #nc1 , nc2 , nc_combo = clipc_combine_process.combine_two_indecies_wcs(wcs_url1, wcs_url2, op , bbox , time1 , time2 , tmpFolderPath+'/wcs_nc1.nc' , '/tmp/wcs_nc2.nc', fileOutPath+"/"+outputfile,callback=callback ,certfile=certfile)
-        nc1 , nc2 , nc_combo = clipc_combine_process.combine_two_indecies_wcs(wcs_url1, wcs_url2, op , norm1 , norm2 , bbox , time1 , time2 , tmpFolderPath+'/wcs_nc1.nc' , tmpFolderPath+'/wcs_nc2.nc', fileOutPath+"/"+outputfile,width=width , height=height, callback=callback ,certfile=certfile)
+        capath= os.environ.get('CAPATH')
+        logging.debug("CAPATH=["+capath+"]");
+        nc1 , nc2 , nc_combo = clipc_combine_process.combine_two_indecies_wcs(wcs_url1, wcs_url2, op , norm1 , norm2 , bbox , time1 , time2 , tmpFolderPath+'/wcs_nc1.nc' , tmpFolderPath+'/wcs_nc2.nc', fileOutPath+"/"+outputfile,width=width , height=height, callback=callback ,certfile=certfile, capath=capath)
 
 
         #The final answer    
